@@ -7,12 +7,21 @@ import random
 ###########################################################################
 # Helpers 
 
-def delete_create_collection(generation_name):
+def select_one_object_duplicate(obj):
     """
-    Deletes or creates a collection. If collection exists then it will delete all children objects in that collection 
+    selects only one object and duplicates it
+    """
+    bpy.ops.object.select_all(action='DESELECT')
+    bpy.context.view_layer.objects.active = obj
+    obj.select_set(True)
+    bpy.ops.object.duplicate(linked=False)
+    return bpy.context.view_layer.objects.active
+
+def delete_collection(generation_name):
+    """
+    delete the given collection as well as all objects in it 
     """
 
-    
     #delete the collection if it exists
     collection_idx = bpy.data.collections.find(generation_name)
     
@@ -23,6 +32,13 @@ def delete_create_collection(generation_name):
             bpy.data.objects.remove(selected_collection.objects[0])
         bpy.data.collections.remove(selected_collection)
 
+def delete_create_collection(generation_name):
+    """
+    Deletes or creates a collection. If collection exists then it will delete all children objects in that collection 
+    """
+
+    delete_collection(generation_name)
+
     #create a collection to hold all these items
     my_coll = bpy.data.collections.new(generation_name)
     bpy.context.scene.collection.children.link(my_coll)
@@ -30,7 +46,23 @@ def delete_create_collection(generation_name):
     collection_idx = bpy.data.collections.find(generation_name) 
     return (collection_idx, my_coll)
 
+def sort_and_relocate_collection(collection_name, x_loc):
+    """
+    Relocate all objects in the specified collection to the specified x line (Sorted in order of descending fitness)
+    """
+    fitnesses = np.array([-fitness(obj) for obj in bpy.data.collections[collection_name].objects])
+    sort_index = fitnesses.argsort()
+    ranks = sort_index.argsort()
+
+    for idx, obj in enumerate(bpy.data.collections[collection_name].objects):
+        obj.location = [x_loc*10, 6*ranks[idx], 0]
+        #[x_loc*10, 6*len(bpy.data.collections[collection_idx].objects), 0]
+
 def obj_properties(obj): 
+    """
+    Get the attributes needed for fitness or GA operations
+    """
+
     #get the object color
     (r,g,b,a) = obj.active_material.diffuse_color
     
@@ -51,7 +83,8 @@ def update_object_from_properties(obj, desired_properties):
     
     #set the dimensions
     obj.dimensions = [desired_properties[4], desired_properties[5], desired_properties[6]]
-    
+
+
 ###########################################################################
 # Genetic Algorithm functions 
 
@@ -90,7 +123,8 @@ def fitness(obj):
     """
     
     #set the ideal r,g,b,a,x,y,z
-    ideal = np.array([0.72, 0.274, 0.801, 1, 2, 2, 2])
+    ideal = np.array([0.72, 0.274, 0.801, 1,     2,    2,  2])
+    
     current = obj_properties(obj)
     
     return 1/ (np.linalg.norm(ideal-current) +0.0000000001)
@@ -113,7 +147,29 @@ def crossover_properties(obj1, obj2):
             child_props[i]=obj2_props[i]
     
     return child_props
+
+def crossover_properties_plus(obj1, obj2):
+    """
+    Create a set of properties derived from a uniform crossover from two objects
+
+    returns: an np.array of properties [r,g,b,a,x,y,z]
+    """
+    obj1_props = obj_properties(obj1)
+    obj2_props = obj_properties(obj2)
     
+    child_props = np.zeros_like(obj1_props)
+    #use uniform crossover
+    for i in range(len(child_props)):
+        coin = random.random()
+        if coin <= .3333333:
+            child_props[i]=obj1_props[i]
+        elif coin <= .6666666:
+            child_props[i]=obj2_props[i]
+        else:
+            child_props[i]=(obj2_props[i] + obj1_props[i])/2
+    
+    return child_props
+
 def mutation_properties(obj):
     """
     Create a set of properties derived from a uniform crossover from two objects
@@ -129,12 +185,12 @@ def mutation_properties(obj):
                 obj_props[i] = random.random()
             else:
                 #dimensions can go up to 10
-                obj_props[i] = random.randint(0,10)
+                obj_props[i] = random.randint(0,5)
 
     return obj_props
 
 
-def create_generation(generation_idx, n_population, mutate_probability = 0.1, keep_last = 5):
+def create_generation(generation_idx, n_population, x_loc, mutate_probability = 0.1):
     
     generation_name = f"generation {generation_idx}"
     (collection_idx, my_coll) = delete_create_collection(generation_name)
@@ -144,42 +200,58 @@ def create_generation(generation_idx, n_population, mutate_probability = 0.1, ke
     if prior_generation == -1:
         prior_generation = bpy.data.collections.find(f"parents")
      
-    
     #score all objects in the prior generation (as probabilities) 
     obj_scores = np.array([fitness(obj) for obj in bpy.data.collections[prior_generation].objects])
     obj_scores = obj_scores / np.sum(obj_scores)
     
-    
+    for idx, obj in enumerate(bpy.data.collections[prior_generation].objects):
+        obj["parent prob"] = obj_scores[idx]
+        obj["fitness"] = fitness(obj)
+        obj["fitness_obj"] = str(obj_properties(obj))
+        obj["objname"] = obj.name
+        
     #generate n_population items in this generation (assigning them to the correct layer)
     while len(bpy.data.collections[collection_idx].objects) < n_population:
         #find two according to fitness
         obj_to_cross = np.random.choice(len(obj_scores), 2, replace=False, p=obj_scores)
 
         #create an off spring
-        offspring_data = bpy.data.collections[prior_generation].objects[obj_to_cross[0]].data.copy()
-        offspring = bpy.data.collections[prior_generation].objects[obj_to_cross[0]].copy()
-        offspring.data = offspring_data
+        offspring = select_one_object_duplicate(bpy.data.collections[prior_generation].objects[obj_to_cross[0]])
+        #add to next gen
+        bpy.data.collections[prior_generation].objects.unlink(offspring)
+        bpy.data.collections[collection_idx].objects.link(offspring)
 
         #reposition the object
-        offspring.location = [generation_idx*10, 6*len(bpy.data.collections[collection_idx].objects), 0]
+        offspring.location = [x_loc*10, 6*len(bpy.data.collections[collection_idx].objects), 0]
 
         #make a new 
-        offspring_properties = crossover_properties(bpy.data.collections[prior_generation].objects[obj_to_cross[0]],
+        offspring_properties = crossover_properties_plus(bpy.data.collections[prior_generation].objects[obj_to_cross[0]],
                                               bpy.data.collections[prior_generation].objects[obj_to_cross[1]])
         update_object_from_properties(offspring, offspring_properties)
 
         #mutate if needed
-        #if random.random() <  mutate_probability:
-        #    offspring_properties = mutation_properties(offspring)
-        #    update_object_from_properties(offspring, offspring_properties)
-        offspring["fitness"] = fitness(offspring)
+        if random.random() <  mutate_probability:
+            offspring_properties = mutation_properties(offspring)
+            update_object_from_properties(offspring, offspring_properties)
 
-        #add to next gen
-        bpy.data.collections[collection_idx].objects.link(offspring)
 
+to_delete = [collection.name for collection in bpy.data.collections if collection.name.find("generation") == 0 ]
+for collection_name in to_delete:
+    delete_collection(collection_name)
 
 load()
 
-for i in range(10):
-    create_generation(i, 20)
+report_every = 5
+for i in range(20):
+    #create the generation at x_location -10
+    create_generation(i, 20, -10)
+
+    #if this is a reporting generation then move it there
+    if i % report_every == 0:
+        sort_and_relocate_collection(f"generation {i}", (i // report_every)+1)
+    
+    #delete the generation two generations ago (if no longer needed)
+    if i > 2 and (i-2) % report_every != 0 and f"generation {i-2}" in bpy.data.collections:
+        delete_collection(f"generation {i-2}")
+
 
