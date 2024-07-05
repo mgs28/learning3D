@@ -58,7 +58,7 @@ def sort_and_relocate_collection(collection_name, x_loc):
         obj.location = [x_loc*10, 6*ranks[idx], 0]
         #[x_loc*10, 6*len(bpy.data.collections[collection_idx].objects), 0]
 
-def obj_properties(obj): 
+def properties_of_obj(obj): 
     """
     Get the attributes needed for fitness or GA operations
     """
@@ -115,8 +115,6 @@ def load(generation_name = "parents", model_dir = '/Users/schultz/Desktop/git/le
         #add it to a collection
         bpy.ops.object.move_to_collection(collection_index=collection_idx+1)
 
-
-    
 def fitness(obj):
     """
     Score an object based on its fitness (closeness to end goal)
@@ -125,7 +123,7 @@ def fitness(obj):
     #set the ideal r,g,b,a,x,y,z
     ideal = np.array([0.72, 0.274, 0.801, 1,     2,    2,  2])
     
-    current = obj_properties(obj)
+    current = properties_of_obj(obj)
     
     return 1/ (np.linalg.norm(ideal-current) +0.0000000001)
     
@@ -135,8 +133,8 @@ def crossover_properties(obj1, obj2):
 
     returns: an np.array of properties [r,g,b,a,x,y,z]
     """
-    obj1_props = obj_properties(obj1)
-    obj2_props = obj_properties(obj2)
+    obj1_props = properties_of_obj(obj1)
+    obj2_props = properties_of_obj(obj2)
     
     child_props = np.zeros_like(obj1_props)
     #use uniform crossover
@@ -154,8 +152,8 @@ def crossover_properties_plus(obj1, obj2):
 
     returns: an np.array of properties [r,g,b,a,x,y,z]
     """
-    obj1_props = obj_properties(obj1)
-    obj2_props = obj_properties(obj2)
+    obj1_props = properties_of_obj(obj1)
+    obj2_props = properties_of_obj(obj2)
     
     child_props = np.zeros_like(obj1_props)
     #use uniform crossover
@@ -176,16 +174,20 @@ def mutation_properties(obj):
 
     returns: an np.array of properties [r,g,b,a,x,y,z]
     """
-    obj_props = obj_properties(obj)
+    obj_props = properties_of_obj(obj)
 
     for i in range(len(obj_props)):
         if random.random() <= 1/len(obj_props):
-            if i < 4:
-                #colors are between 0 and 1 
-                obj_props[i] = random.random()
+            idx = random.randint(0, len(obj_props)-1)
+            if obj_props[idx] == 0:
+                if i < 4:
+                    #colors are between 0 and 1 
+                    obj_props[i] = random.random()
+                else:
+                    #dimensions can go up to 10
+                    obj_props[i] = random.randint(0,5)
             else:
-                #dimensions can go up to 10
-                obj_props[i] = random.randint(0,5)
+                obj_props[i] = obj_props[i] * random.uniform(-2,2)
 
     return obj_props
 
@@ -207,7 +209,7 @@ def create_generation(generation_idx, n_population, x_loc, mutate_probability = 
     for idx, obj in enumerate(bpy.data.collections[prior_generation].objects):
         obj["parent prob"] = obj_scores[idx]
         obj["fitness"] = fitness(obj)
-        obj["fitness_obj"] = str(obj_properties(obj))
+        obj["fitness_obj"] = str(properties_of_obj(obj))
         obj["objname"] = obj.name
         
     #generate n_population items in this generation (assigning them to the correct layer)
