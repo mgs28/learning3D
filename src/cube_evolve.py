@@ -126,27 +126,8 @@ def fitness(obj):
     current = properties_of_obj(obj)
     
     return 1/ (np.linalg.norm(ideal-current) +0.0000000001)
-    
+
 def crossover_properties(obj1, obj2):
-    """
-    Create a set of properties derived from a uniform crossover from two objects
-
-    returns: an np.array of properties [r,g,b,a,x,y,z]
-    """
-    obj1_props = properties_of_obj(obj1)
-    obj2_props = properties_of_obj(obj2)
-    
-    child_props = np.zeros_like(obj1_props)
-    #use uniform crossover
-    for i in range(len(child_props)):
-        if random.random() <= .5:
-            child_props[i]=obj1_props[i]
-        else:
-            child_props[i]=obj2_props[i]
-    
-    return child_props
-
-def crossover_properties_plus(obj1, obj2):
     """
     Create a set of properties derived from a uniform crossover from two objects
 
@@ -187,7 +168,7 @@ def mutation_properties(obj):
                     #dimensions can go up to 10
                     obj_props[i] = random.randint(0,5)
             else:
-                obj_props[i] = obj_props[i] * random.uniform(-2,2)
+                obj_props[i] = obj_props[i] * random.uniform(0,3)
 
     return obj_props
 
@@ -227,7 +208,7 @@ def create_generation(generation_idx, n_population, x_loc, mutate_probability = 
         offspring.location = [x_loc*10, 6*len(bpy.data.collections[collection_idx].objects), 0]
 
         #make a new 
-        offspring_properties = crossover_properties_plus(bpy.data.collections[prior_generation].objects[obj_to_cross[0]],
+        offspring_properties = crossover_properties(bpy.data.collections[prior_generation].objects[obj_to_cross[0]],
                                               bpy.data.collections[prior_generation].objects[obj_to_cross[1]])
         update_object_from_properties(offspring, offspring_properties)
 
