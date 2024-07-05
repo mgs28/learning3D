@@ -2,6 +2,12 @@
 
 The goal of this project is to learn how to create complex 3D objects where we only know the fitness (e.g. similarity to a physical process) and have some initial Blender objects to evolve from. 
 
+The simple example is to generate a cube shown in the picture below. Each row in the following picture is a generation of the algorithm. The row with three objects in the foreground is the input generation. It is three hand created cubes of different dimensions. The next row is the first generation where there is lots of variability. Each row after that gets a little closer to the end goal (a mauve 2x2x2 cube). Finally, to ease understanding of the rows objects to the right side have a higher fitness than objects to the left end of a row. 
+
+![alt text](documentation\evolve_cube.png "Title")
+
+## Genetic algorithm
+
 In this first iteration (src/cube_evolve.py), we are evolving a cube based on three input objects
 
 * A pure blue cube with x = 0.1, y = 1.5 and z = 1.5 (data/default cube blue)
