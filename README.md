@@ -4,7 +4,7 @@ The goal of this project is to learn how to create complex 3D objects where we o
 
 The simple example is to generate a cube shown in the picture below. Each row in the following picture is a generation of the algorithm. The row with three objects in the foreground is the input generation. It is three hand created cubes of different dimensions. The next row is the first generation where there is lots of variability. Each row after that gets a little closer to the end goal (a mauve 2x2x2 cube). Finally, to ease understanding of the rows objects to the right side have a higher fitness than objects to the left end of a row. 
 
-![alt text](documentation\evolve_cube.png "Title")
+![alt text](evolve_cube.png "Blender example of GA")
 
 ## Genetic algorithm
 
